@@ -4,22 +4,34 @@ import Todo from 'components/Todo';
 import { gql, useQuery, useLazyQuery } from '@apollo/client';
 import { scryRenderedComponentsWithType } from 'react-dom/test-utils';
 
-const GetTodo = gql `
-query MyQuery2 {
-  todolist {
-    id
-    is_done
-    title
+const GET_DATA = gql`
+  query MyQuery2 {
+    todolist {
+      id
+      is_done
+      title
+    }
   }
-}
-`
+`;
+
+const GETDATA_BY_ID_INPUT = gql`
+  query MyQuery($id: Int!) {
+    todolist_by_pk(id: $id) {
+      id
+      title
+      is_done
+    }
+  }
+`;
 
 
 function TodoList() {
-  const { data, loading, error } = useQuery(GetTodo);
-  console.log("data=", data)
+  const { data, loading, error } = useQuery(GET_DATA);
+  const [ getDataById ,{ data: databyid, loading: loadingbyid, errorbyid }] = useLazyQuery(GETDATA_BY_ID_INPUT);
+  // console.log("data=", data)
   const [list, setList] = useState([]);
   const [title, setTitle] = useState('');
+  const [input, setInput] = useState('');
 
   const onChangeTitle = (e) => {
     if (e.target) {
@@ -44,31 +56,47 @@ function TodoList() {
     setList(newList);
   };
 
+  const handleIdInput = (e, id) => {
+    e.preventDefault();
+    getDataById({
+      variables: {
+        id: id
+      }
+    });
+  };
+
   return (
     <>
       <div className='container'>
         <h1 className='app-title'>todos</h1>
-        <ul className='todo-list js-todo-list'>
-          {list.map((v, i) => (
-            <Todo
-              key={i}
-              id={i}
-              onClickItem={() => onClickItem(i)}
-              onDeleteItem={() => onDeleteItem(i)}
-              title={v.title}
-              checked={v.checked}
-            />
-          ))}
-        </ul>
-        <div className='empty-state'>
-          <svg className='checklist-icon'>
-            <use href='#checklist-icon'></use>
-          </svg>
-          <h2 className='empty-state__title'>Add your first todo</h2>
-          <p className='empty-state__description'>
-            What do you want to get done today?
-          </p>
-        </div>
+        {
+          data ?
+            (<ul className='todo-list js-todo-list'>
+              {data?.todolist.map((v, i) => (
+                <Todo
+                  key={v.id}
+                  id={v.id}
+                  onClickItem={() => onClickItem(v.id)}
+                  onDeleteItem={() => onDeleteItem(v.id)}
+                  title={v.title}
+                  checked={v.is_done}
+                />
+              ))}
+            </ul>)
+            :
+            <>
+            <div className="">Fetching Data...</div>
+            <div className='empty-state'>
+              <svg className='checklist-icon'>
+                <use href='#checklist-icon'></use>
+              </svg>
+              <h2 className='empty-state__title'>Add your first todo</h2>
+              <p className='empty-state__description'>
+                What do you want to get done today?
+              </p>
+            </div>
+            </>
+        }
         <form className='js-form' onSubmit={onSubmitList}>
           <input
             onChange={onChangeTitle}
@@ -80,6 +108,45 @@ function TodoList() {
             className='js-todo-input'
           />
         </form>
+      </div>
+
+      <div className="container">
+        <h1 className="app-title">Get By ID</h1>
+        <form className='js-form' onSubmit={(e) => {handleIdInput(e, input)}} style={{marginBottom: '0.75rem'}}>
+          <input
+            onChange={(e) => (setInput(e.target.value))}
+            value={input}
+            autoFocus
+            type='text'
+            aria-label='Enter todolist ID'
+            placeholder='Enter todolist ID'
+            className='js-todo-input'
+          />
+        </form>
+        {
+          databyid
+          ?
+          (
+            <ul className='todo-list js-todo-list'>
+              { databyid?.todolist_by_pk && (
+                <Todo
+                  key={databyid?.todolist_by_pk.id}
+                  id={databyid?.todolist_by_pk.id}
+                  onClickItem={() => onClickItem(databyid?.todolist_by_pk.id)}
+                  onDeleteItem={() => onDeleteItem(databyid?.todolist_by_pk.id)}
+                  title={databyid?.todolist_by_pk.title}
+                  checked={databyid?.todolist_by_pk.is_done}
+                />
+              )}
+            </ul>
+          )
+          :
+          loadingbyid
+          ?
+          <div className="">Fetching Data...</div>
+          :
+          <div className=""></div>
+        }
       </div>
 
       <svg>
